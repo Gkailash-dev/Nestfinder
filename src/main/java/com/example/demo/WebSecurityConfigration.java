@@ -1,5 +1,6 @@
 package com.example.demo;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,8 +16,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-
-
 import java.util.List;
 
 @Configuration
@@ -24,95 +23,94 @@ import java.util.List;
 public class WebSecurityConfigration {
 
     @Autowired
-    CoustomOauth2Successhandler coustomOauth2Successhandler;
-    @Autowired
     private CustomUserDetailServices userDetailServices;
+
+    @Autowired
+    private CoustomOauth2Successhandler coustomOauth2Successhandler;
 
     @Bean
     public SecurityFilterChain security(HttpSecurity http) throws Exception {
 
         http
-                .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
+            .csrf(csrf -> csrf.disable())
+            .cors(Customizer.withDefaults())
 
-                // 🔐 ROLE-BASED ACCESS (SPRING SIDE)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/adduser", "/","/all","/add","/who","/search","/counts","/admin/getuser").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/user/**").hasRole("USER")
+            .authorizeHttpRequests(auth -> auth
+                // Allow preflight
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        .anyRequest().authenticated()
-                )
-  .exceptionHandling(exception -> exception
-    .authenticationEntryPoint((request, response, authException) -> {
-        response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-    })
-)
-                // 🔑 LOGIN CONFIG
-                .formLogin(form -> form
-                        .loginProcessingUrl("/login")
+                // Public endpoints
+                .requestMatchers(
+                        "/login",
+                        "/adduser",
+                        "/",
+                        "/all",
+                        "/add",
+                        "/who",
+                        "/search",
+                        "/counts",
+                        "/admin/getuser"
+                ).permitAll()
 
-                        // ✅ SUCCESS → JSON RESPONSE
-                        .successHandler((request, response, authentication) -> {
+                // Role-based access
+                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/user/**").hasRole("USER")
 
-                            boolean isAdmin = authentication.getAuthorities()
-                                    .stream()
-                                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+                .anyRequest().authenticated()
+            )
 
-                            response.setStatus(200);
-                            response.setContentType("application/json");
-                            System.out.println(authentication.getAuthorities());
-                            System.out.println(authentication.getAuthorities());
-                            if (isAdmin) {
-                                response.getWriter().write("""
-                            {
-                              "message": "Login successful",
-                              "role": "ADMIN"
-                            }
-                        """);
-                            } else {
-                                response.getWriter().write("""
-                            {
-                              "message": "Login successful",
-                              "role": "USER"
-                            }
-                        """);
-                            }
-                        })
-
-                        // ❌ FAILURE → JSON ERROR
-                        .failureHandler((request, response, exception) -> {
-                            response.setStatus(401);
-                            response.setContentType("application/json");
-                            response.getWriter().write("""
-                        {
-                          "message": "Invalid username or password"
-                        }
+            // 🔥 CRITICAL: Return 401 instead of redirect
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("""
+                        { "message": "Unauthorized" }
                     """);
-                        })
+                })
+            )
 
+            // Form login (no redirect behavior)
+            .formLogin(form -> form
+                .loginProcessingUrl("/login")
+                .successHandler((request, response, authentication) -> {
 
+                    boolean isAdmin = authentication.getAuthorities()
+                            .stream()
+                            .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
+                    response.setStatus(200);
+                    response.setContentType("application/json");
 
-                        .permitAll()
+                    if (isAdmin) {
+                        response.getWriter().write("""
+                            { "message": "Login successful", "role": "ADMIN" }
+                        """);
+                    } else {
+                        response.getWriter().write("""
+                            { "message": "Login successful", "role": "USER" }
+                        """);
+                    }
+                })
+                .failureHandler((request, response, exception) -> {
+                    response.setStatus(401);
+                    response.setContentType("application/json");
+                    response.getWriter().write("""
+                        { "message": "Invalid username or password" }
+                    """);
+                })
+                .permitAll()
+            )
 
-                )
-                .oauth2Login(oauth -> oauth
-                        .loginPage("/")
-                        .successHandler(coustomOauth2Successhandler)
-
-                );
-
-
-
-
-
+            .oauth2Login(oauth -> oauth
+                .loginPage("/")
+                .successHandler(coustomOauth2Successhandler)
+            );
 
         return http.build();
     }
 
-    // 🔐 AUTH PROVIDER
+    // Authentication Provider
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider =
@@ -121,18 +119,18 @@ public class WebSecurityConfigration {
         return provider;
     }
 
-    // 🔑 PASSWORD ENCODER
+    // Password Encoder
     @Bean
     public BCryptPasswordEncoder bCryptPasswordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-
-
+    // CORS Configuration
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
         CorsConfiguration config = new CorsConfiguration();
+
         config.setAllowedOrigins(List.of("http://localhost:5173"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
@@ -140,6 +138,7 @@ public class WebSecurityConfigration {
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", config);
 
         return source;
