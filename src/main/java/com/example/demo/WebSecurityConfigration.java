@@ -37,7 +37,7 @@ public class WebSecurityConfigration {
 
                 // 🔐 ROLE-BASED ACCESS (SPRING SIDE)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login", "/adduser", "/","/all","/add","/who","/search","/counts").permitAll()
+                        .requestMatchers("/login", "/adduser", "/","/all","/add","/who","/search","/counts","/admin/getuser).permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/user/**").hasRole("USER")
