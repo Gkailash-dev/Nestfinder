@@ -44,7 +44,11 @@ public class WebSecurityConfigration {
 
                         .anyRequest().authenticated()
                 )
-
+  .exceptionHandling(exception -> exception
+    .authenticationEntryPoint((request, response, authException) -> {
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+    })
+)
                 // 🔑 LOGIN CONFIG
                 .formLogin(form -> form
                         .loginProcessingUrl("/login")
