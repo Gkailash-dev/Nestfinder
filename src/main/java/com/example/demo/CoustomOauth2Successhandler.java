@@ -84,10 +84,10 @@ public class CoustomOauth2Successhandler implements AuthenticationSuccessHandler
 
         // Redirect based on role
         if ("ROLE_ADMIN".equals(user.getRole())) {
-            response.sendRedirect("http://localhost:5173/admin/dashboard");
+            response.sendRedirect("https://nestfinderfrontend.vercel.app/admin/dashboard");
         } else {
             response.sendRedirect(
-                    "http://localhost:5173/user/user_product?message=" +
+                    "https://nestfinderfrontend.vercel.app/user/user_product?message=" +
                             URLEncoder.encode(message, StandardCharsets.UTF_8)
             );
         }
